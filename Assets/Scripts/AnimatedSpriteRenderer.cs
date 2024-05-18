@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 [RequireComponent(typeof(SpriteRenderer))]
 public class AnimatedSpriteRenderer : MonoBehaviour
@@ -27,6 +28,7 @@ public class AnimatedSpriteRenderer : MonoBehaviour
     private void OnDisable()
     {
         spriteRenderer.enabled = false;
+
     }
 
     private void Start()
@@ -44,6 +46,8 @@ public class AnimatedSpriteRenderer : MonoBehaviour
 
         if (idle) {
             spriteRenderer.sprite = idleSprite;
+            
+
         } else if (animationFrame >= 0 && animationFrame < animationSprites.Length) {
             spriteRenderer.sprite = animationSprites[animationFrame];
         }

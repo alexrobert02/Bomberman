@@ -10,10 +10,10 @@ public class GameManager : MonoBehaviour
     private void Awake()
     {
         if (Instance != null) {
-            DestroyImmediate(gameObject);
+         //   DestroyImmediate(gameObject);
         } else {
             Instance = this;
-            DontDestroyOnLoad(gameObject);
+           // DontDestroyOnLoad(gameObject);
         }
     }
 
@@ -35,7 +35,7 @@ public class GameManager : MonoBehaviour
 
     private void NewRound()
     {
-        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+        SceneManager.LoadScene(2);
     }
 
 }
