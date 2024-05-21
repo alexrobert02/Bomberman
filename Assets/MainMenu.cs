@@ -9,4 +9,8 @@ public class MainMenu : MonoBehaviour
     {
         SceneManager.LoadSceneAsync(1);
     }
+    public void ComputerGame()
+    {
+        SceneManager.LoadScene(3);
+    }
 }

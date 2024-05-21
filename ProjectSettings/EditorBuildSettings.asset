@@ -14,4 +14,7 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/PlayAgain.unity
     guid: 210186b5a548e1245973abc1e37e69a8
+  - enabled: 1
+    path: Assets/Scenes/PvBScene.unity
+    guid: b4df32bebb79e6e4381cfe6ade228de6
   m_configObjects: {}
