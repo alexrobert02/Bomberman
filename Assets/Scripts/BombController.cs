@@ -11,6 +11,11 @@ public class BombController : MonoBehaviour
     public int bombAmount = 1;
     private int bombsRemaining;
 
+    public int BombsRemaining
+    {
+        get { return bombsRemaining; }
+    }
+
     [Header("Explosion")]
     public Explosion explosionPrefab;
     public LayerMask explosionLayerMask;
@@ -33,7 +38,7 @@ public class BombController : MonoBehaviour
         }
     }
 
-    private IEnumerator PlaceBomb()
+    public IEnumerator PlaceBomb()
     {
         Vector2 position = transform.position;
         position.x = Mathf.Round(position.x);
@@ -107,5 +112,4 @@ public class BombController : MonoBehaviour
             other.isTrigger = false;
         }
     }
-
 }

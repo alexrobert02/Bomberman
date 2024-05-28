@@ -50,7 +50,7 @@ public class MovementController : MonoBehaviour
         rb.MovePosition(position + translation);
     }
 
-    private void SetDirection(Vector2 newDirection, AnimatedSpriteRenderer spriteRenderer)
+    public void SetDirection(Vector2 newDirection, AnimatedSpriteRenderer spriteRenderer)
     {
         direction = newDirection;
 
