@@ -32,6 +32,7 @@ public class BotController : MonoBehaviour
             // Randomly decide whether to place a bomb
             if (bombController.BombsRemaining > 0 && Random.value > 0.7f)
             {
+                yield return new WaitForSeconds(0.5f);
                 TryPlaceBomb();
             }
 
@@ -55,6 +56,7 @@ public class BotController : MonoBehaviour
             StartCoroutine(bombController.PlaceBomb());
         }
     }
+    
 
     private bool IsNextToDestructibleBlock()
     {
