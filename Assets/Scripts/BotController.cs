@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 
@@ -10,7 +11,11 @@ public class BotController : MonoBehaviour
     private float moveTime;
     private float moveDuration = 0.20f; // Duration for each move in seconds
     private float bombDetectionRadius; // Radius to detect bombs
+    private float perkDetectionRadius = 1.5f; // Radius to detect perks
+    private float playerDetectionRadius = 2.0f; // Radius to detect the player
     public LayerMask stageLayer;
+    public LayerMask perkLayer; // Layer mask for detecting perks
+    public LayerMask playerLayer; // Layer mask for detecting the player
 
     private void Awake()
     {
@@ -30,7 +35,7 @@ public class BotController : MonoBehaviour
         while (true)
         {
             // Randomly decide whether to place a bomb
-            if (bombController.BombsRemaining > 0 && Random.value > 0.7f)
+            if (bombController.BombsRemaining > 0 && ShouldPlaceBomb())
             {
                 yield return new WaitForSeconds(0.5f);
                 TryPlaceBomb();
@@ -49,14 +54,19 @@ public class BotController : MonoBehaviour
         }
     }
 
+    private bool ShouldPlaceBomb()
+    {
+        // Decide to place a bomb if it can destroy multiple blocks, kill the player, or if the chance is high
+        return Random.value > 0.7f || IsNextToDestructibleBlock() || IsNextToPlayer();
+    }
+
     private void TryPlaceBomb()
     {
-        if (IsNextToDestructibleBlock())
+        if ((IsNextToDestructibleBlock() || IsNextToPlayer()) && !IsInDanger() && HasEscapeRoute())
         {
             StartCoroutine(bombController.PlaceBomb());
         }
     }
-    
 
     private bool IsNextToDestructibleBlock()
     {
@@ -80,31 +90,61 @@ public class BotController : MonoBehaviour
         return false;
     }
 
+    private bool IsNextToPlayer()
+    {
+        Vector2 currentPosition = transform.position;
+        Collider2D[] detectedPlayers = Physics2D.OverlapCircleAll(currentPosition, playerDetectionRadius, playerLayer);
+
+        return detectedPlayers.Length > 0;
+    }
+
+    private bool HasEscapeRoute()
+    {
+        Vector2 currentPosition = transform.position;
+        Vector2[] directions = new Vector2[] { Vector2.up, Vector2.down, Vector2.left, Vector2.right };
+
+        foreach (Vector2 direction in directions)
+        {
+            if (!IsFacingIndestructible(currentPosition, direction))
+            {
+                return true; // Found at least one escape route
+            }
+        }
+
+        return false; // No escape route found
+    }
+
     private Vector2 lastKnownBombPosition = Vector2.zero;
     private bool isEscapingBomb = false;
 
     private void ChooseNewDirection()
     {
-        Debug.Log("ChooseNewDirection");
-
         Vector2 currentPosition = transform.position;
         Vector2 bombPosition = Vector2.zero;
 
         Collider2D[] detectedBombs = Physics2D.OverlapCircleAll(currentPosition, bombDetectionRadius, LayerMask.GetMask("Bomb"));
         Collider2D[] detectedExplosions = Physics2D.OverlapCircleAll(currentPosition, bombDetectionRadius, LayerMask.GetMask("Explosion"));
+        Collider2D[] detectedPerks = Physics2D.OverlapCircleAll(currentPosition, perkDetectionRadius, perkLayer);
+        Collider2D[] detectedPlayers = Physics2D.OverlapCircleAll(currentPosition, playerDetectionRadius, playerLayer);
 
         bool isNearBomb = detectedBombs.Length > 0 || detectedExplosions.Length > 0;
 
-        if (isNearBomb)
+        if (detectedPlayers.Length > 0 && !isNearBomb)
+        {
+            moveDirection = (detectedPlayers[0].transform.position - transform.position).normalized;
+        }
+        else if (detectedPerks.Length > 0 && !isNearBomb)
+        {
+            moveDirection = (detectedPerks[0].transform.position - transform.position).normalized;
+        }
+        else if (isNearBomb)
         {
             if (detectedBombs.Length > 0)
             {
-                Debug.Log("Bomb detected");
                 bombPosition = detectedBombs[0].transform.position;
             }
             else if (detectedExplosions.Length > 0)
             {
-                Debug.Log("Explosion detected");
                 bombPosition = detectedExplosions[0].transform.position;
             }
 
@@ -120,15 +160,12 @@ public class BotController : MonoBehaviour
         }
         else if (isEscapingBomb)
         {
-            // Continue escaping in the same direction if still within the bomb detection radius
             moveDirection = GetSafeDirection(currentPosition, (currentPosition - lastKnownBombPosition).normalized);
-            isEscapingBomb = false; // Reset after finding a new safe direction
+            isEscapingBomb = false;
         }
         else
         {
-            Debug.Log("No bomb in radius");
-            // Randomly choose a new direction if no bombs are nearby
-            moveDirection = GetRandomDirection();
+            moveDirection = GetSmartDirection();
         }
 
         SetMovementDirection(moveDirection);
@@ -162,25 +199,43 @@ public class BotController : MonoBehaviour
         return Vector2.Dot(direction, bombDirection) > 0.5f; // Threshold to determine if direction is towards the bomb
     }
 
-
     private bool IsFacingIndestructible(Vector2 position, Vector2 direction)
     {
         RaycastHit2D hit = Physics2D.Raycast(position, direction, 1f, stageLayer);
         return hit.collider != null && hit.collider.CompareTag("Indestructible");
     }
 
-    private Vector2 GetAlternateDirection(Vector2 position, Vector2 currentDirection)
+    private Vector2 GetSmartDirection()
     {
-        Debug.Log("Alternate direction");
+        // Prioritize directions with destructible blocks or unexplored areas
+        List<Vector2> preferredDirections = new List<Vector2>();
         Vector2[] possibleDirections = new Vector2[] { Vector2.up, Vector2.down, Vector2.left, Vector2.right };
+
         foreach (Vector2 direction in possibleDirections)
         {
-            if (direction != currentDirection && !IsFacingIndestructible(position, direction))
+            Vector3Int cell = bombController.destructibleTiles.WorldToCell((Vector2)transform.position + direction);
+            if (!IsFacingIndestructible((Vector2)transform.position, direction) &&
+                (bombController.destructibleTiles.GetTile(cell) != null || IsUnexplored(cell)))
             {
-                return direction;
+                preferredDirections.Add(direction);
             }
         }
-        return currentDirection; // Fallback to current direction if no alternate direction is found
+
+        if (preferredDirections.Count > 0)
+        {
+            return preferredDirections[Random.Range(0, preferredDirections.Count)];
+        }
+        else
+        {
+            return GetRandomDirection();
+        }
+    }
+
+    private bool IsUnexplored(Vector3Int cell)
+    {
+        // Logic to determine if a cell is unexplored
+        // This can be customized based on your game's exploration logic
+        return !bombController.destructibleTiles.HasTile(cell);
     }
 
     private Vector2 GetRandomDirection()
@@ -241,5 +296,12 @@ public class BotController : MonoBehaviour
         {
             return movementController.spriteRendererRight;
         }
+    }
+
+    private bool IsInDanger()
+    {
+        Vector2 currentPosition = transform.position;
+        Collider2D[] detectedExplosions = Physics2D.OverlapCircleAll(currentPosition, bombDetectionRadius, LayerMask.GetMask("Explosion"));
+        return detectedExplosions.Length > 0;
     }
 }
